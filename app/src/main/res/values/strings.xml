@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Map</string>
+    <string name="title_activity_maps">MapsActivity</string>
+    <string name="alert">Alert</string>
+    <string name="permission_alert_msg">Please give Location permission for working correctly</string>
+    <string name="start">Start</string>
+    <string name="destination">Destination</string>
+</resources>
