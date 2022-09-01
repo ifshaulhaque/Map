@@ -56,6 +56,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
     private var polyline: Polyline? = null
     private lateinit var mapsPresenter: MapsPresenter
     private lateinit var clusterManager: ClusterManager<ClusterItem>
+    private var isFirstTime = true
 
     private val requestLocationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -121,7 +122,14 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
         }
 
         binding.locationIv.setOnClickListener {
-            onLocationRequestPermission()
+            mMap.moveCamera(
+                CameraUpdateFactory.newLatLngZoom(
+                    LatLng(
+                        currentLatitude,
+                        currentLongitude
+                    ), 16F
+                )
+            )
         }
 
         val mapFragment = supportFragmentManager
@@ -226,35 +234,52 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
     @SuppressLint("MissingPermission")
     private fun onGetLocation() {
         turnOnGPS()
-        fusedLocationProviderClient.lastLocation.addOnCompleteListener { task ->
-            Timber.e("Task : ${task.result}")
-            if (task.result != null) {
-                currentLatitude = task.result.latitude
-                currentLongitude = task.result.longitude
-            }
-            innerCircle?.remove()
-            outerCircle?.remove()
-            innerCircle = mMap.addCircle(
-                CircleOptions().center(LatLng(currentLatitude, currentLongitude))
-                    .radius(25.0)
-                    .fillColor(Color.argb(200, 84, 110, 122))
-                    .strokeColor(Color.argb(200, 84, 110, 122))
-            )
-            outerCircle = mMap.addCircle(
-                CircleOptions().center(LatLng(currentLatitude, currentLongitude))
-                    .radius(250.0)
-                    .fillColor(Color.argb(100, 120, 144, 156))
-                    .strokeColor(Color.argb(200, 120, 144, 156))
-            )
-            mMap.moveCamera(
-                CameraUpdateFactory.newLatLngZoom(
-                    LatLng(
-                        currentLatitude,
-                        currentLongitude
-                    ), 16F
-                )
-            )
-        }
+
+        val mLocationRequest = LocationRequest()
+        mLocationRequest.interval = 10000
+        mLocationRequest.fastestInterval = 1000
+        mLocationRequest.priority = LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY
+        LocationSettingsRequest.Builder()
+            .addLocationRequest(mLocationRequest)
+
+        fusedLocationProviderClient.requestLocationUpdates(
+            mLocationRequest,
+            object : LocationCallback() {
+                override fun onLocationResult(locationResult: LocationResult) {
+                    super.onLocationResult(locationResult)
+                    for (location in locationResult.locations) {
+                        currentLatitude = location.latitude
+                        currentLongitude = location.longitude
+                    }
+                    innerCircle?.remove()
+                    outerCircle?.remove()
+                    innerCircle = mMap.addCircle(
+                        CircleOptions().center(LatLng(currentLatitude, currentLongitude))
+                            .radius(25.0)
+                            .fillColor(Color.argb(200, 84, 110, 122))
+                            .strokeColor(Color.argb(200, 84, 110, 122))
+                    )
+                    outerCircle = mMap.addCircle(
+                        CircleOptions().center(LatLng(currentLatitude, currentLongitude))
+                            .radius(250.0)
+                            .fillColor(Color.argb(100, 120, 144, 156))
+                            .strokeColor(Color.argb(200, 120, 144, 156))
+                    )
+                    if (isFirstTime) {
+                        mMap.moveCamera(
+                            CameraUpdateFactory.newLatLngZoom(
+                                LatLng(
+                                    currentLatitude,
+                                    currentLongitude
+                                ), 16F
+                            )
+                        )
+                        isFirstTime = false
+                    }
+                }
+            },
+            null
+        )
     }
 
     private fun setVisibilityGone() {
@@ -299,7 +324,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
         polyline?.remove()
         polyline = mMap.addPolyline(polylineOptions)
 
-        appUtils.getBound(originPlace, destinationPlace)?.let { bound->
+        appUtils.getBound(originPlace, destinationPlace)?.let { bound ->
             mMap.moveCamera(
                 CameraUpdateFactory.newLatLngBounds(
                     bound,
@@ -316,7 +341,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
 
     private fun turnOnGPS() {
         if (!isGPSEnable()) {
-            val intent1 = Intent (Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+            val intent1 = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
             startActivity(intent1)
         }
     }
