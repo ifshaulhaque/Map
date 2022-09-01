@@ -2,11 +2,9 @@ package com.example.map.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -39,8 +37,6 @@ import timber.log.Timber
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
 
-    private var innerCircle: Circle? = null
-    private var outerCircle: Circle? = null
     private lateinit var center: LatLng
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapsBinding
@@ -122,14 +118,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
         }
 
         binding.locationIv.setOnClickListener {
-            mMap.moveCamera(
-                CameraUpdateFactory.newLatLngZoom(
-                    LatLng(
-                        currentLatitude,
-                        currentLongitude
-                    ), 16F
-                )
-            )
+            moveCameraToCurrentLocation()
         }
 
         val mapFragment = supportFragmentManager
@@ -234,16 +223,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
     @SuppressLint("MissingPermission")
     private fun onGetLocation() {
         turnOnGPS()
-
-        val mLocationRequest = LocationRequest()
-        mLocationRequest.interval = 10000
-        mLocationRequest.fastestInterval = 1000
-        mLocationRequest.priority = LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY
-        LocationSettingsRequest.Builder()
-            .addLocationRequest(mLocationRequest)
-
         fusedLocationProviderClient.requestLocationUpdates(
-            mLocationRequest,
+            appUtils.getLocationRequest(),
             object : LocationCallback() {
                 override fun onLocationResult(locationResult: LocationResult) {
                     super.onLocationResult(locationResult)
@@ -251,34 +232,25 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
                         currentLatitude = location.latitude
                         currentLongitude = location.longitude
                     }
-                    innerCircle?.remove()
-                    outerCircle?.remove()
-                    innerCircle = mMap.addCircle(
-                        CircleOptions().center(LatLng(currentLatitude, currentLongitude))
-                            .radius(25.0)
-                            .fillColor(Color.argb(200, 84, 110, 122))
-                            .strokeColor(Color.argb(200, 84, 110, 122))
-                    )
-                    outerCircle = mMap.addCircle(
-                        CircleOptions().center(LatLng(currentLatitude, currentLongitude))
-                            .radius(250.0)
-                            .fillColor(Color.argb(100, 120, 144, 156))
-                            .strokeColor(Color.argb(200, 120, 144, 156))
-                    )
+                    appUtils.createLocationCircles(mMap, currentLatitude, currentLongitude)
                     if (isFirstTime) {
-                        mMap.moveCamera(
-                            CameraUpdateFactory.newLatLngZoom(
-                                LatLng(
-                                    currentLatitude,
-                                    currentLongitude
-                                ), 16F
-                            )
-                        )
+                        moveCameraToCurrentLocation()
                         isFirstTime = false
                     }
                 }
             },
             null
+        )
+    }
+
+    private fun moveCameraToCurrentLocation() {
+        mMap.moveCamera(
+            CameraUpdateFactory.newLatLngZoom(
+                LatLng(
+                    currentLatitude,
+                    currentLongitude
+                ), 16F
+            )
         )
     }
 
@@ -340,15 +312,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
     }
 
     private fun turnOnGPS() {
-        if (!isGPSEnable()) {
+        if (!appUtils.isGPSEnable(this)) {
             val intent1 = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
             startActivity(intent1)
         }
-    }
-
-    private fun isGPSEnable(): Boolean {
-        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
     }
 
 }
