@@ -2,9 +2,11 @@ package com.example.map.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -14,13 +16,12 @@ import androidx.core.content.ContextCompat
 import com.example.map.AutoCompleteFragmentType
 import com.example.map.Constants
 import com.example.map.R
-import com.example.map.databinding.ActivityMainBinding
+import com.example.map.databinding.ActivityMapsBinding
 import com.example.map.di.NetworkModule
 import com.example.map.retrofit.entities.PlaceModel
 import com.example.map.utils.AppUtils
 import com.google.android.gms.common.api.Status
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.*
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -38,18 +39,20 @@ import timber.log.Timber
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
 
+    private var innerCircle: Circle? = null
+    private var outerCircle: Circle? = null
     private lateinit var center: LatLng
     private lateinit var mMap: GoogleMap
-    private lateinit var binding: ActivityMainBinding
+    private lateinit var binding: ActivityMapsBinding
     private lateinit var appUtils: AppUtils
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private var currentLatitude: Double = 28.679079
     private var currentLongitude: Double = 77.069710
-    private lateinit var currentMarker: Marker
+    private var currentMarker: Marker? = null
     private var destinationMarker: Marker? = null
     private lateinit var placesClient: PlacesClient
-    private lateinit var originPlace: Place
-    private lateinit var destinationPlace: Place
+    private var originPlace: Place? = null
+    private var destinationPlace: Place? = null
     private var polyline: Polyline? = null
     private lateinit var mapsPresenter: MapsPresenter
     private lateinit var clusterManager: ClusterManager<ClusterItem>
@@ -71,13 +74,11 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         supportActionBar?.hide()
-        binding = ActivityMainBinding.inflate(layoutInflater)
+        binding = ActivityMapsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         Timber.plant(Timber.DebugTree())
-
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
         appUtils = AppUtils()
-        onLocationRequestPermission()
         mapsPresenter = MapsPresenter(
             NetworkModule.providesDirectionAPI(
                 NetworkModule.providesRetrofit()
@@ -94,8 +95,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
         binding.directionFab.setOnClickListener {
             if (originPlace != null && destinationPlace != null) {
                 mapsPresenter.getPolyLines(
-                    "${originPlace.latLng?.latitude},${originPlace.latLng?.longitude}",
-                    "${destinationPlace.latLng?.latitude},${destinationPlace.latLng?.longitude}"
+                    "${originPlace?.latLng?.latitude},${originPlace?.latLng?.longitude}",
+                    "${destinationPlace?.latLng?.latitude},${destinationPlace?.latLng?.longitude}"
                 )
             }
         }
@@ -117,6 +118,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
                 2000
             )
             setVisibilityGone()
+        }
+
+        binding.locationIv.setOnClickListener {
+            onLocationRequestPermission()
         }
 
         val mapFragment = supportFragmentManager
@@ -146,7 +151,13 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
                     )
                     if (type == AutoCompleteFragmentType.Origin) {
                         originPlace = place
-                        currentMarker.position = latLong
+                        if (currentMarker != null) {
+                            currentMarker?.position = latLong
+                        } else {
+                            currentMarker = mMap.addMarker(
+                                MarkerOptions().position(latLong)
+                            )
+                        }
                     } else {
                         destinationPlace = place
                         if (destinationMarker != null) {
@@ -170,10 +181,12 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
 
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
+        onLocationRequestPermission()
         setUpClusterer()
         with(mMap.uiSettings) {
             isZoomControlsEnabled = true
             isCompassEnabled = true
+            isMyLocationButtonEnabled = true
         }
     }
 
@@ -212,22 +225,33 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
 
     @SuppressLint("MissingPermission")
     private fun onGetLocation() {
+        turnOnGPS()
         fusedLocationProviderClient.lastLocation.addOnCompleteListener { task ->
             Timber.e("Task : ${task.result}")
             if (task.result != null) {
                 currentLatitude = task.result.latitude
                 currentLongitude = task.result.longitude
             }
-            mMap.addMarker(MarkerOptions().position(LatLng(currentLatitude, currentLongitude)))
-                ?.let { marker ->
-                    currentMarker = marker
-                }
+            innerCircle?.remove()
+            outerCircle?.remove()
+            innerCircle = mMap.addCircle(
+                CircleOptions().center(LatLng(currentLatitude, currentLongitude))
+                    .radius(25.0)
+                    .fillColor(Color.argb(200, 84, 110, 122))
+                    .strokeColor(Color.argb(200, 84, 110, 122))
+            )
+            outerCircle = mMap.addCircle(
+                CircleOptions().center(LatLng(currentLatitude, currentLongitude))
+                    .radius(250.0)
+                    .fillColor(Color.argb(100, 120, 144, 156))
+                    .strokeColor(Color.argb(200, 120, 144, 156))
+            )
             mMap.moveCamera(
                 CameraUpdateFactory.newLatLngZoom(
                     LatLng(
                         currentLatitude,
                         currentLongitude
-                    ), 5F
+                    ), 16F
                 )
             )
         }
@@ -238,7 +262,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
         binding.durationTv.text = ""
     }
 
-    override fun onGetListLatLng(
+    override fun onGetPath(
         listLatLng: ArrayList<LatLng>,
         distance: String,
         duration: String,
@@ -253,7 +277,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
     }
 
     override fun onGetPlaces(listPlace: List<PlaceModel>) {
-        currentMarker.remove()
         for (place in listPlace) {
             clusterManager.addItem(
                 ClusterItem(
@@ -270,36 +293,37 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, IMaps {
 
     private fun drawPolyLine() {
         val polylineOptions = PolylineOptions()
-            .add(originPlace.latLng)
-            .add(destinationPlace.latLng)
+            .add(originPlace?.latLng)
+            .add(destinationPlace?.latLng)
             .color(Color.BLUE)
         polyline?.remove()
         polyline = mMap.addPolyline(polylineOptions)
 
-        originPlace.latLng?.let { originLatLng ->
-            destinationPlace.latLng?.let { destinationLatLng ->
-                mMap.moveCamera(
-                    CameraUpdateFactory.newLatLngBounds(
-                        LatLngBounds(
-                            LatLng(
-                                if (originLatLng.latitude < destinationLatLng.latitude) originLatLng.latitude else destinationLatLng.latitude,
-                                if (originLatLng.longitude < destinationLatLng.longitude) originLatLng.longitude else destinationLatLng.longitude
-                            ),
-                            LatLng(
-                                if (originLatLng.latitude > destinationLatLng.latitude) originLatLng.latitude else destinationLatLng.latitude,
-                                if (originLatLng.longitude > destinationLatLng.longitude) originLatLng.longitude else destinationLatLng.longitude
-                            )
-                        ),
-                        100
-                    )
+        appUtils.getBound(originPlace, destinationPlace)?.let { bound->
+            mMap.moveCamera(
+                CameraUpdateFactory.newLatLngBounds(
+                    bound,
+                    100
                 )
-            }
+            )
         }
     }
 
     private fun setUpClusterer() {
         clusterManager = ClusterManager(this, mMap)
         mMap.setOnCameraIdleListener(clusterManager)
+    }
+
+    private fun turnOnGPS() {
+        if (!isGPSEnable()) {
+            val intent1 = Intent (Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+            startActivity(intent1)
+        }
+    }
+
+    private fun isGPSEnable(): Boolean {
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
     }
 
 }

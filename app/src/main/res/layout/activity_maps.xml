@@ -1,9 +1,98 @@
 <?xml version="1.0" encoding="utf-8"?>
-<fragment xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:map="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/map"
-    android:name="com.google.android.gms.maps.SupportMapFragment"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context=".ui.MapsActivity" />
+    android:layout_height="match_parent">
+
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/start_cardView"
+        android:layout_margin="@dimen/small_margin">
+
+        <fragment
+            android:id="@+id/start_autocompleteFragment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:name="com.google.android.libraries.places.widget.AutocompleteSupportFragment"
+            />
+
+    </androidx.cardview.widget.CardView>
+
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/destination_cardView"
+        android:layout_below="@id/start_cardView"
+        android:layout_margin="@dimen/small_margin">
+
+        <fragment
+            android:id="@+id/destination_autocompleteFragment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:name="com.google.android.libraries.places.widget.AutocompleteSupportFragment"
+            />
+
+    </androidx.cardview.widget.CardView>
+
+    <include
+        android:id="@+id/map"
+        layout="@layout/map"
+        android:layout_height="match_parent"
+        android:layout_width="match_parent"
+        android:layout_below="@id/destination_cardView"/>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:layout_width="75dp"
+        android:layout_height="75dp"
+        android:id="@+id/direction_fab"
+        android:layout_alignParentBottom="true"
+        android:layout_margin="@dimen/small_margin"
+        android:src="@drawable/ic_baseline_directions_24"
+        android:backgroundTint="@color/purple_200"/>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:layout_width="75dp"
+        android:layout_height="75dp"
+        android:id="@+id/polyline_fab"
+        android:layout_above="@id/direction_fab"
+        android:layout_margin="@dimen/small_margin"
+        android:src="@drawable/ic_baseline_arrow_right_alt_24"
+        android:backgroundTint="@color/purple_200"/>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:layout_width="75dp"
+        android:layout_height="75dp"
+        android:id="@+id/places_fab"
+        android:layout_above="@id/polyline_fab"
+        android:layout_margin="@dimen/small_margin"
+        android:src="@drawable/ic_baseline_place_24"
+        android:backgroundTint="@color/purple_200"/>
+
+    <TextView
+        android:id="@+id/distance_tv"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/places_fab"
+        android:layout_margin="@dimen/small_margin"
+        android:textColor="@color/purple_500"
+        android:textSize="18dp"/>
+
+    <TextView
+        android:id="@+id/duration_tv"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/distance_tv"
+        android:layout_margin="@dimen/small_margin"
+        android:textColor="@color/purple_500"
+        android:textSize="18dp"/>
+
+    <ImageView
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:id="@+id/location_iv"
+        android:src="@drawable/ic_baseline_my_location_24"
+        android:layout_below="@id/destination_cardView"
+        android:layout_margin="@dimen/small_margin"
+        android:layout_alignParentRight="true"/>
+
+</RelativeLayout>

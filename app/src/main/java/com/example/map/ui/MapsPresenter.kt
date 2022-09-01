@@ -75,7 +75,7 @@ class MapsPresenter(private val iMapApi: IMapApi, private val iMaps: IMaps) {
                             }
                         }
                         if (routes.isNotEmpty()) {
-                            iMaps.onGetListLatLng(
+                            iMaps.onGetPath(
                                 listLatLng,
                                 distance,
                                 duration,

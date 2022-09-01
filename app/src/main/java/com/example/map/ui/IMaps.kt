@@ -5,7 +5,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 
 interface IMaps {
-    fun onGetListLatLng(
+    fun onGetPath(
         listLatLng: ArrayList<LatLng>,
         distance: String,
         duration: String,
